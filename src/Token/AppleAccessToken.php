@@ -8,6 +8,17 @@ use InvalidArgumentException;
 
 class AppleAccessToken extends AccessToken
 {
+
+    /**
+     * Default apcu cache key to store the apple keys
+     */
+    const APCU_DEFAULT_KEY = 'applekeys';
+
+    /**
+     * Default apcu ttl, in seconds, to store the apple keys
+     */
+    const APCU_DEFAULT_TTL = 300;
+
     /**
      * @var string
      */
@@ -24,6 +35,21 @@ class AppleAccessToken extends AccessToken
     protected $isPrivateEmail;
 
     /**
+     * @var string|null
+     */
+    protected $apcu_key = null;
+
+    /**
+     * @var int|null
+     */
+    protected $apcu_ttl = null;
+
+    /**
+     * @var bool
+     */
+    protected $apcu_enabled = false;
+
+    /**
      * Constructs an access token.
      *
      * @param array $options An array of options returned by the service provider
@@ -34,6 +60,11 @@ class AppleAccessToken extends AccessToken
      */
     public function __construct(array $options = [])
     {
+        $this->apcu_key = self::APCU_DEFAULT_KEY;
+        $this->apcu_ttl = self::APCU_DEFAULT_TTL;
+
+        $this->apcu_enabled = function_exists('apcu_store') && function_exists('apcu_fetch');
+
         if (empty($options['id_token'])) {
             throw new InvalidArgumentException('Required option not passed: "id_token"');
         }
@@ -82,7 +113,21 @@ class AppleAccessToken extends AccessToken
      */
     protected function getAppleKey()
     {
-        return JWK::parseKeySet(file_get_contents('https://appleid.apple.com/auth/keys'));
+        $appleKeys = null;
+
+        if ($this->apcu_enabled) {
+            $appleKeys = apcu_fetch($this->apcu_key);
+        }
+
+        if (empty($appleKeys)) {
+            $appleKeys = file_get_contents('https://appleid.apple.com/auth/keys');
+
+            if ($this->apcu_enabled) {
+                apcu_store($this->apcu_key, $appleKeys, $this->apcu_ttl);
+            }
+        }
+
+        return JWK::parseKeySet($appleKeys);
     }
 
     /**
@@ -107,5 +152,19 @@ class AppleAccessToken extends AccessToken
     public function isPrivateEmail()
     {
         return $this->isPrivateEmail;
+    }
+
+    /**
+     * @param string $cacheKey
+     */
+    public function setCacheKey($cacheKey) {
+        $this->apcu_key = $cacheKey;
+    }
+
+    /**
+     * @param int $ttl
+     */
+    public function setCacheTTL($ttl) {
+        $this->apcu_ttl = $ttl;
     }
 }
