@@ -42,6 +42,11 @@ class Apple extends AbstractProvider
     protected $keyFilePath;
 
     /**
+     * @var string the key file contents
+     */
+    protected $keyFileContents;
+
+    /**
      * Constructs Apple's OAuth 2.0 service provider.
      *
      * @param array $options
@@ -57,8 +62,8 @@ class Apple extends AbstractProvider
             throw new InvalidArgumentException('Required option not passed: "keyFileId"');
         }
 
-        if (empty($options['keyFilePath'])) {
-            throw new InvalidArgumentException('Required option not passed: "keyFilePath"');
+        if (empty($options['keyFilePath']) && empty($options['keyFileContents'])) {
+            throw new InvalidArgumentException('Required option not passed: "keyFilePath" or "keyFileContents"');
         }
 
         parent::__construct($options, $collaborators);
@@ -234,6 +239,6 @@ class Apple extends AbstractProvider
      */
     public function getLocalKey()
     {
-        return new Key('file://' . $this->keyFilePath);
+        return new Key(!empty($this->keyFileContents) ? $this->keyFileContents : ('file://' . $this->keyFilePath));
     }
 }
