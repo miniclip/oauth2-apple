@@ -66,10 +66,6 @@ class Apple extends AbstractProvider
             throw new InvalidArgumentException('Required option not passed: "keyFilePath" or "keyFileContents"');
         }
 
-        if (!empty($options['keyFileContents'])) {
-            $this->keyFileContents = $options['keyFileContents'];
-        }
-
         parent::__construct($options, $collaborators);
     }
 
