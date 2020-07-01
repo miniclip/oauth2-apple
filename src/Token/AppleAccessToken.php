@@ -127,7 +127,7 @@ class AppleAccessToken extends AccessToken
             }
         }
 
-        return JWK::parseKeySet($appleKeys);
+        return JWK::parseKeySet(json_decode($appleKeys, true));
     }
 
     /**
