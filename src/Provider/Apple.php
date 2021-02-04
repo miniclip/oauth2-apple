@@ -4,8 +4,9 @@ namespace League\OAuth2\Client\Provider;
 
 use Exception;
 use InvalidArgumentException;
-use Lcobucci\JWT\Builder;
-use Lcobucci\JWT\Signer\Ecdsa\Sha256;
+use Lcobucci\JWT\Configuration;
+use Lcobucci\JWT\Signer\Key\LocalFileReference;
+use Lcobucci\JWT\Signer;
 use Lcobucci\JWT\Signer\Key;
 use League\OAuth2\Client\Grant\AbstractGrant;
 use League\OAuth2\Client\Provider\Exception\AppleAccessDeniedException;
@@ -81,7 +82,7 @@ class Apple extends AbstractProvider
      */
     protected function createAccessToken(array $response, AbstractGrant $grant)
     {
-        return new AppleAccessToken($response);
+        return new AppleAccessToken($this->getHttpClient(), $response);
     }
 
     /**
@@ -118,7 +119,7 @@ class Apple extends AbstractProvider
     protected function fetchResourceOwnerDetails(AccessToken $token)
     {
         return json_decode(array_key_exists('user', $_GET) ? $_GET['user']
-            : (array_key_exists('user', $_POST) ? $_POST['user'] : '[]'), true);
+            : (array_key_exists('user', $_POST) ? $_POST['user'] : '[]'), true) ?: [];
     }
 
     /**
@@ -213,25 +214,38 @@ class Apple extends AbstractProvider
      */
     public function getAccessToken($grant, array $options = [])
     {
-        $signer = new Sha256();
-        $time = time();
+        $configuration = $this->getConfiguration();
+        $time = new \DateTimeImmutable();
+        $time = $time->setTime($time->format('H'), $time->format('i'), $time->format('s'));
+        $expiresAt = $time->modify('+1 Hour');
+        $expiresAt = $expiresAt->setTime($expiresAt->format('H'), $expiresAt->format('i'), $expiresAt->format('s'));
 
-        $token = (new Builder())
+        $token = $configuration->builder()
             ->issuedBy($this->teamId)
             ->permittedFor('https://appleid.apple.com')
             ->issuedAt($time)
-            ->expiresAt($time + 600)
+            ->expiresAt($expiresAt)
             ->relatedTo($this->clientId)
-            ->withClaim('sub', $this->clientId)
             ->withHeader('alg', 'ES256')
             ->withHeader('kid', $this->keyFileId)
-            ->getToken($signer, $this->getLocalKey());
+            ->getToken($configuration->signer(), $configuration->signingKey());
 
         $options += [
-            'client_secret' => (string) $token
+            'client_secret' => $token->toString()
         ];
 
         return parent::getAccessToken($grant, $options);
+    }
+
+    /**
+     * @return Configuration
+     */
+    public function getConfiguration()
+    {
+        return Configuration::forSymmetricSigner(
+            Signer\Ecdsa\Sha256::create(),
+            $this->getLocalKey()
+        );
     }
 
     /**
@@ -239,6 +253,10 @@ class Apple extends AbstractProvider
      */
     public function getLocalKey()
     {
-        return new Key(!empty($this->keyFileContents) ? $this->keyFileContents : ('file://' . $this->keyFilePath));
+        if (!empty($this->keyFileContents)) {
+            return new Key($this->keyFileContents);
+        }
+
+        return LocalFileReference::file($this->keyFilePath);
     }
 }

@@ -4,6 +4,7 @@ namespace League\OAuth2\Client\Token;
 
 use Firebase\JWT\JWK;
 use Firebase\JWT\JWT;
+use GuzzleHttp\ClientInterface;
 use InvalidArgumentException;
 
 class AppleAccessToken extends AccessToken
@@ -50,51 +51,66 @@ class AppleAccessToken extends AccessToken
     protected $apcu_enabled = false;
 
     /**
+     * @var ClientInterface
+     */
+    protected $httpClient;
+
+
+    /**
      * Constructs an access token.
      *
+     * @param ClientInterface $httpClient the http client to use
      * @param array $options An array of options returned by the service provider
      *     in the access token request. The `access_token` option is required.
      * @throws InvalidArgumentException if `access_token` is not provided in `$options`.
      *
      * @throws \Exception
      */
-    public function __construct(array $options = [])
+    public function __construct($httpClient, array $options = [])
     {
         $this->apcu_key = self::APCU_DEFAULT_KEY;
         $this->apcu_ttl = self::APCU_DEFAULT_TTL;
 
         $this->apcu_enabled = function_exists('apcu_store') && function_exists('apcu_fetch');
 
-        if (empty($options['id_token'])) {
-            throw new InvalidArgumentException('Required option not passed: "id_token"');
+        if (empty($options['access_token'])) {
+            throw new InvalidArgumentException('Required option not passed: "access_token"');
         }
 
-        $decoded = null;
-        $keys = $this->getAppleKey();
-        $last = end($keys);
-        foreach ($keys as $key) {
-            try {
-                $decoded = JWT::decode($options['id_token'], $key, ['RS256']);
-                break;
-            } catch (\Exception $exception) {
-                if ($last === $key) {
-                    throw $exception;
+        $this->httpClient = $httpClient;
+
+        if (array_key_exists('refresh_token', $options)) {
+            if (empty($options['id_token'])) {
+                throw new InvalidArgumentException('Required option not passed: "id_token"');
+            }
+
+            $decoded = null;
+            $keys = $this->getAppleKey();
+            $last = end($keys);
+            foreach ($keys as $key) {
+                try {
+                    $decoded = JWT::decode($options['id_token'], $key, ['RS256']);
+                    break;
+                } catch (\Exception $exception) {
+                    if ($last === $key) {
+                        throw $exception;
+                    }
                 }
             }
-        }
-        if (null === $decoded) {
-            throw new \Exception('Got no data within "id_token"!');
-        }
-        $payload = json_decode(json_encode($decoded), true);
+            if (null === $decoded) {
+                throw new \Exception('Got no data within "id_token"!');
+            }
+            $payload = json_decode(json_encode($decoded), true);
 
-        $options['resource_owner_id'] = $payload['sub'];
+            $options['resource_owner_id'] = $payload['sub'];
 
-        if (isset($payload['email_verified']) && $payload['email_verified']) {
-            $options['email'] = $payload['email'];
-        }
+            if (isset($payload['email_verified']) && $payload['email_verified']) {
+                $options['email'] = $payload['email'];
+            }
 
-        if (isset($payload['is_private_email'])) {
-            $this->isPrivateEmail = $payload['is_private_email'];
+            if (isset($payload['is_private_email'])) {
+                $this->isPrivateEmail = $payload['is_private_email'];
+            }
         }
 
         parent::__construct($options);
@@ -120,14 +136,18 @@ class AppleAccessToken extends AccessToken
         }
 
         if (empty($appleKeys)) {
-            $appleKeys = file_get_contents('https://appleid.apple.com/auth/keys');
+            $response = $this->httpClient->request('GET', 'https://appleid.apple.com/auth/keys');
 
-            if ($this->apcu_enabled) {
-                apcu_store($this->apcu_key, $appleKeys, $this->apcu_ttl);
+            if ($response) {
+                if ($this->apcu_enabled) {
+                    apcu_store($this->apcu_key, $appleKeys, $this->apcu_ttl);
+                }
+
+                return JWK::parseKeySet(json_decode($response->getBody()->getContents(), true));
             }
         }
 
-        return JWK::parseKeySet(json_decode($appleKeys, true));
+        return [];
     }
 
     /**
@@ -157,14 +177,16 @@ class AppleAccessToken extends AccessToken
     /**
      * @param string $cacheKey
      */
-    public function setCacheKey($cacheKey) {
+    public function setCacheKey($cacheKey)
+    {
         $this->apcu_key = $cacheKey;
     }
 
     /**
      * @param int $ttl
      */
-    public function setCacheTTL($ttl) {
+    public function setCacheTTL($ttl)
+    {
         $this->apcu_ttl = $ttl;
     }
 }
