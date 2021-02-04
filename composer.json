@@ -19,10 +19,10 @@
         "sign-in-with-apple"
     ],
     "require": {
-        "league/oauth2-client": "2.4.1",
+        "league/oauth2-client": "^2.0",
         "ext-json": "*",
-        "firebase/php-jwt": "5.2.0",
-        "lcobucci/jwt": "3.4.0"
+        "firebase/php-jwt": "^5.2",
+        "lcobucci/jwt": "^3.4 || ^4.0"
     },
     "require-dev": {
         "phpunit/phpunit": "^5.7 || ^6.0 || ^9.3",
