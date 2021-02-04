@@ -7,6 +7,8 @@ matrix:
         - php: 7.1
         - php: 7.2
         - php: 7.3
+        - php: 7.4
+        - php: 8.0
         - php: nightly
         - php: hhvm-3.6
           sudo: required
@@ -47,5 +49,8 @@ script:
   - ./vendor/bin/phpunit --coverage-text --coverage-clover=coverage.clover
 
 after_script:
-  - if [ "$TRAVIS_PHP_VERSION" == "7.1" ]; then wget https://scrutinizer-ci.com/ocular.phar; fi
-  - if [ "$TRAVIS_PHP_VERSION" == "7.1" ]; then php ocular.phar code-coverage:upload --format=php-clover coverage.clover; fi
+  - if [ "$TRAVIS_PHP_VERSION" == "7.4" ]; then wget https://scrutinizer-ci.com/ocular.phar; fi
+  - if [ "$TRAVIS_PHP_VERSION" == "7.4" ]; then php ocular.phar code-coverage:upload --format=php-clover coverage.clover; fi
+
+after_success:
+  - bash <(curl -s https://codecov.io/bash)
