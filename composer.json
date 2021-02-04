@@ -40,6 +40,11 @@
             "League\\OAuth2\\Client\\Test\\": "test/src/"
         }
     },
+    "config": {
+        "platform": {
+            "php": "5.6.1"
+        }
+    },
     "extra": {
         "branch-alias": {
             "dev-master": "0.3.x-dev"
