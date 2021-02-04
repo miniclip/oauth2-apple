@@ -73,8 +73,8 @@ class AppleAccessToken extends AccessToken
 
         $this->apcu_enabled = function_exists('apcu_store') && function_exists('apcu_fetch');
 
-        if (empty($options['id_token'])) {
-            throw new InvalidArgumentException('Required option not passed: "id_token"');
+        if (empty($options['access_token'])) {
+            throw new InvalidArgumentException('Required option not passed: "access_token"');
         }
 
         $this->httpClient = $httpClient;
