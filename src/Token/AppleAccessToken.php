@@ -177,14 +177,16 @@ class AppleAccessToken extends AccessToken
     /**
      * @param string $cacheKey
      */
-    public function setCacheKey($cacheKey) {
+    public function setCacheKey($cacheKey) 
+    {
         $this->apcu_key = $cacheKey;
     }
 
     /**
      * @param int $ttl
      */
-    public function setCacheTTL($ttl) {
+    public function setCacheTTL($ttl) 
+    {
         $this->apcu_ttl = $ttl;
     }
 }
